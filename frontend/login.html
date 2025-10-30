@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Mohammadia Nursing Home</h1>
+  <h1>Attendance Management System (AMS) 1.0</h1>
+<h1>Login</h1>
+<div class="form-box">
+  <form id="loginForm">
+    <input type="text" id="staff_id" placeholder="Staff ID" required>
+    
+    <div style="position: relative;">
+      <input type="password" id="password" placeholder="Password" required>
+      <span id="togglePassword" 
+            style="position:absolute; right:10px; top:50%; transform:translateY(-50%); cursor:pointer; font-size:14px; color:#555;">
+        🙈
+      </span>
+    </div>
+    
+    <button type="submit">Login</button>
+    
+  </form>
+</div>
+
+<div class="footer">
+  <p class="footer-text">Made with ❤️ by <a href="https://www.instagram.com/umar_bin_hamid1" target="_blank" class="footer-link">Umar Bin Hamid</a> & team</p>
+  
+</div>
+
+<script>
+const API_URL = "http://192.168.35.70:5000/api/auth/login"; // my actual IP
+document.getElementById("loginForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const staff_id = document.getElementById("staff_id").value;
+  const password = document.getElementById("password").value;
+  try {
+    const res = await fetch(API_URL, {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({staff_id,password})
+    });
+    const data = await res.json();
+    if(res.ok){
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("role", data.role);
+      localStorage.setItem("name", data.name);
+      if(data.role === "Admin") window.location.href="user-management.html";
+      else window.location.href="attendance.html";
+    } else {
+      alert(data.error || "Login failed");
+    }
+  } catch(err){
+    console.error(err);
+    alert("Cannot connect to server");
+  }
+});
+
+// 👁️ Show/Hide Password functionality
+const togglePassword = document.getElementById("togglePassword");
+const passwordField = document.getElementById("password");
+
+togglePassword.addEventListener("click", () => {
+  const type = passwordField.getAttribute("type") === "password" ? "text" : "password";
+  passwordField.setAttribute("type", type);
+  togglePassword.textContent = type === "password" ? "🙈" : "👁️";
+});
+</script>
+</body>
+</html>

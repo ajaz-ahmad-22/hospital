@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Admin Panel - User Management</title>
+<link rel="stylesheet" href="styles.css" />
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet" />
+<style>
+  body {
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f8fafc;
+    padding: 20px;
+  }
+
+  h1 {
+    text-align: center;
+    margin-bottom: 25px;
+    color: #222;
+  }
+
+  .form-box {
+    background: #fff;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
+    margin-bottom: 25px;
+  }
+
+  .form-box h3 {
+    margin-bottom: 15px;
+    color: #333;
+  }
+
+  .form-box input,
+  .form-box select {
+    padding: 8px;
+    margin: 5px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+  }
+
+  .form-box button {
+    padding: 8px 14px;
+    border: none;
+    background-color: #16A249;
+    color: white;
+    border-radius: 5px;
+    cursor: pointer;
+    display: block;
+    margin: 0 auto;
+    width: 50%
+  }
+
+  .form-box button:hover {
+    background-color: #0056b3;
+  }
+
+  #usersTable {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+  } 
+
+  #usersTable th, #usersTable td {
+    border: 1px solid #100f0f;
+    padding: 10px;
+  }
+
+  #usersTable th {
+    background-color: #16A249;
+    color: white;
+    text-align: center;
+  }
+
+  #usersTable td {
+    text-align: center;
+  }
+
+  #usersTable td a {
+    color: #007bff;
+    cursor: pointer;
+    text-decoration: none;
+    font-weight: 500;
+  }
+
+  #usersTable td a:hover {
+    text-decoration: underline;
+    color: #0056b3;
+  }
+
+  .pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    margin-top: 15px;
+  }
+
+  #logoutBtn {
+    display: block;
+    margin: 20px auto;
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+
+  #logoutBtn:hover {
+    background: #b02a37;
+  }
+
+  /* Modal */
+  .modal {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  padding-top: 60px;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+  background-color: #fff;
+  margin: auto;
+  padding: 20px;
+  border-radius: 10px;
+  width: 90%;
+  max-width: 800px;
+  box-sizing: border-box;
+}
+
+.close {
+  color: #aaa;
+  float: right;
+  font-size: 26px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.close:hover {
+  color: #000;
+}
+
+/* Media Query for small screens (Mobile) */
+@media screen and (max-width: 600px) {
+  .modal-content {
+    width: 45%; /* Make modal content take up more of the screen */
+    padding: 15px; /* Reduce padding */
+    margin: 12%;
+  }
+
+  .close {
+    font-size: 22px; /* Slightly smaller close button on mobile */
+  }
+}
+
+  .export-buttons {
+    margin-bottom: 15px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .export-buttons input[type="date"] {
+    padding: 5px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+  }
+
+  .export-buttons button {
+    background-color: #16A249;
+    color: white;
+    border: none;
+    padding: 6px 10px;
+    border-radius: 5px;
+  }
+
+  .export-buttons button:hover {
+    background-color: #0056b3;
+  }
+
+  .user-divider {
+    border: 0;
+    border-top: 2px solid #e9ecef;
+  }
+</style>
+</head>
+<body>
+  <div class="header">
+  <img src="./10percent.png" alt="logi" class="logo">
+  <div class="titles">
+    <h2>Mohammadia Nursing Home</h2>
+    <h2>Attendance Management System (AMS) 1.0</h2>
+    <h1>Admin Panel - Users</h1>
+  </div>
+</div>
+
+
+<div class="form-box">
+  <h3>Add User</h3>
+  <form id="addUserForm">
+    <input type="text" id="name" placeholder="Full Name" required />
+    <input type="text" id="staff_id" placeholder="Staff ID" required />
+    <input type="password" id="password" placeholder="Password" required />
+    <select id="role">
+      <option value="Staff">Staff</option>
+      <option value="Admin">Admin</option>
+    </select>
+    <button type="submit">Add Staff Member</button>
+  </form>
+</div>
+
+<h3>Existing Users</h3>
+
+<div class="pagination">
+  <input type="text" id="searchBar" placeholder="Search by Name or Staff ID" />
+  <label for="usersPerPage">Users per page:</label>
+  <select id="usersPerPage">
+    <option value="10">10</option>
+    <option value="20" selected>20</option>
+    <option value="50">50</option>
+    <option value="100">100</option>
+  </select>
+</div>
+
+<table id="usersTable">
+  <thead>
+    <tr>
+      <th>S. No.</th>
+      <th>Name</th>
+      <th>Staff ID</th>
+      <th>Role</th>
+      <th>Status</th>
+      <th>Last Check In</th>
+      <th>Last Check Out</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<div class="pagination">
+  <button id="prevPage">Previous</button>
+  <span id="pageInfo"></span>
+  <button id="nextPage">Next</button>
+</div>
+
+<button id="logoutBtn">Logout</button>
+
+<!-- Attendance History Modal -->
+<div id="attendanceModal" class="modal">
+  <div class="modal-content">
+    <span class="close">&times;</span>
+    <h3>Attendance History - <span id="modalName"></span></h3>
+
+    <div class="export-buttons">
+      <label>From: <input type="date" id="startDate" /></label>
+      <label>To: <input type="date" id="endDate" /></label>
+      <button id="filterAttendance">Filter</button>
+      <button id="exportAttendanceExcel">Export to Excel</button>
+      <button id="exportAttendancePDF">Export to PDF</button>
+    </div>
+
+    <table class="table table-striped">
+      <thead>
+        <tr><th>Check In</th><th>Check Out</th></tr>
+      </thead>
+      <tbody id="attendanceBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Excel & PDF Libraries -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<script>
+const API_URL = "http://192.168.35.70:5000/api/users";
+const ATTENDANCE_URL = "http://192.168.35.70:5000/api/attendance";
+const token = localStorage.getItem("token");
+if (!token) window.location.href="login.html";
+
+let allUsers = [], filteredUsers = [];
+let currentPage = 1, usersPerPage = 20;
+let currentAttendanceData = [], currentFilteredAttendance = [];
+let currentAttendanceUserName = "", currentAttendanceStaffId = "";
+
+// Decode JWT to check admin
+function parseJwt (token) {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(window.atob(base64));
+  } catch { return null; }
+}
+const decoded = parseJwt(token);
+const loggedInRole = decoded?.role || "";
+
+// Load users
+async function loadUsers() {
+  const res = await fetch(API_URL, { headers: { "Authorization": "Bearer "+token } });
+  allUsers = await res.json();
+  if (loggedInRole === "Admin") allUsers = allUsers.filter(u => u.role !== "Admin");
+  filteredUsers = allUsers;
+  renderTable();
+}
+
+// Render users with line between
+function renderTable() {
+  const tbody = document.querySelector("#usersTable tbody");
+  tbody.innerHTML = "";
+  const totalPages = Math.ceil(filteredUsers.length / usersPerPage);
+  const start = (currentPage - 1) * usersPerPage;
+  const pageUsers = filteredUsers.slice(start, start + usersPerPage);
+
+  pageUsers.forEach((u, i) => {
+    const tr = document.createElement("tr");
+    const serial = start + i + 1;
+    const actionButtons = u.role === "Admin" ? "" :
+      `<button onclick="toggleStatus('${u.staff_id}','${u.status}')">${u.status==='Active'?'Disable':'Enable'}</button>
+       <button onclick="deleteUser('${u.staff_id}')">Delete</button>`;
+    tr.innerHTML = `
+      <td>${serial}</td>
+      <td><a onclick="showAttendance('${u.staff_id}','${u.name}')">${u.name}</a></td>
+      <td>${u.staff_id}</td>
+      <td>${u.role}</td>
+      <td>${u.status}</td>
+      <td>${u.last_check_in ? new Date(u.last_check_in).toLocaleString():"-"}</td>
+      <td>${u.last_check_out ? new Date(u.last_check_out).toLocaleString():"-"}</td>
+      <td>${actionButtons}</td>`;
+    tbody.appendChild(tr);
+
+    // line divider
+    const hr = document.createElement("tr");
+    hr.innerHTML = `<td colspan="8"><hr class="user-divider" /></td>`;
+    tbody.appendChild(hr);
+  });
+  document.getElementById("pageInfo").textContent = `Page ${currentPage} of ${totalPages || 1}`;
+}
+
+// Search + pagination handlers same as before
+document.getElementById("searchBar").addEventListener("input", e=>{
+  const term = e.target.value.toLowerCase();
+  filteredUsers = allUsers.filter(u =>
+    u.name.toLowerCase().includes(term) || u.staff_id.toLowerCase().includes(term)
+  );
+  currentPage = 1; renderTable();
+});
+document.getElementById("nextPage").onclick=()=>{if(currentPage*usersPerPage<filteredUsers.length){currentPage++;renderTable();}};
+document.getElementById("prevPage").onclick=()=>{if(currentPage>1){currentPage--;renderTable();}};
+document.getElementById("usersPerPage").onchange=e=>{usersPerPage=parseInt(e.target.value);currentPage=1;renderTable();};
+
+// Add User
+document.getElementById("addUserForm").addEventListener("submit", async e=>{
+  e.preventDefault();
+  const name=document.getElementById("name").value;
+  const staff_id=document.getElementById("staff_id").value;
+  const password=document.getElementById("password").value;
+  const role=document.getElementById("role").value;
+  const res=await fetch(API_URL,{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},body:JSON.stringify({name,staff_id,password,role})});
+  const data=await res.json();
+  if(res.ok){alert(data.message);loadUsers();e.target.reset();} else alert(data.error);
+});
+
+// Status toggle & delete same as before
+async function toggleStatus(staff_id,currentStatus){
+  const newStatus=currentStatus==='Active'?'Inactive':'Active';
+  await fetch(`${API_URL}/status/${staff_id}`,{method:"PUT",headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},body:JSON.stringify({status:newStatus})});
+  loadUsers();
+}
+async function deleteUser(staff_id){
+  if(!confirm("Delete this user?"))return;
+  const res=await fetch(`${API_URL}/${staff_id}`,{method:"DELETE",headers:{Authorization:"Bearer "+token}});
+  if(res.ok)loadUsers();
+}
+
+// Logout
+document.getElementById("logoutBtn").onclick=()=>{localStorage.removeItem("token");window.location.href="login.html";};
+
+// Modal logic + filter/export (unchanged from your version)
+const modal=document.getElementById("attendanceModal"),span=document.getElementsByClassName("close")[0];
+span.onclick=()=>modal.style.display="none";
+window.onclick=e=>{if(e.target==modal)modal.style.display="none";};
+
+async function showAttendance(staff_id,name){
+  document.getElementById("modalName").innerText=name;
+  currentAttendanceUserName=name; currentAttendanceStaffId=staff_id;
+  const res=await fetch(`${ATTENDANCE_URL}/history/${staff_id}`,{headers:{Authorization:"Bearer "+token}});
+  const data=await res.json(); currentAttendanceData=data; currentFilteredAttendance=[];
+  const tbody=document.getElementById("attendanceBody");
+  tbody.innerHTML="";
+  data.forEach(a=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td>${a.check_in?new Date(a.check_in).toLocaleString():"-"}</td>
+                  <td>${a.check_out?new Date(a.check_out).toLocaleString():"-"}</td>`;
+    tbody.appendChild(tr);
+  });
+  modal.style.display="block";
+}
+
+document.getElementById("filterAttendance").onclick=()=>{
+  const s=document.getElementById("startDate").value,e=document.getElementById("endDate").value;
+  if(!s||!e)return alert("Select both dates");
+  const start=new Date(s),end=new Date(e); end.setHours(23,59,59,999);
+  const f=currentAttendanceData.filter(a=>a.check_in && new Date(a.check_in)>=start && new Date(a.check_in)<=end);
+  const tbody=document.getElementById("attendanceBody");
+  tbody.innerHTML="";
+  f.forEach(a=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td>${a.check_in?new Date(a.check_in).toLocaleString():"-"}</td><td>${a.check_out?new Date(a.check_out).toLocaleString():"-"}</td>`;
+    tbody.appendChild(tr);
+  });
+  currentFilteredAttendance=f; if(!f.length)alert("No records found.");
+};
+
+// Export Excel/PDF same as before
+document.getElementById("exportAttendanceExcel").onclick=()=>{
+  const d=currentFilteredAttendance.length?currentFilteredAttendance:currentAttendanceData;
+  if(!d.length)return alert("No attendance records.");
+  const rows=d.map(a=>({"Check In":a.check_in?new Date(a.check_in).toLocaleString():"-","Check Out":a.check_out?new Date(a.check_out).toLocaleString():"-"}));
+  rows.unshift({"Check In":`Name: ${currentAttendanceUserName}`,"Check Out":`Staff ID: ${currentAttendanceStaffId}`});
+  const ws=XLSX.utils.json_to_sheet(rows),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Attendance");XLSX.writeFile(wb,`${currentAttendanceUserName}_attendance.xlsx`);
+};
+document.getElementById("exportAttendancePDF").onclick=()=>{
+  const d=currentFilteredAttendance.length?currentFilteredAttendance:currentAttendanceData;
+  if(!d.length)return alert("No attendance records.");
+  const {jsPDF}=window.jspdf;const doc=new jsPDF();let y=10;doc.text(`Name: ${currentAttendanceUserName}`,10,y);y+=6;doc.text(`Staff ID: ${currentAttendanceStaffId}`,10,y);y+=10;
+  d.forEach(a=>{doc.text(`Check In: ${a.check_in?new Date(a.check_in).toLocaleString():"-"}`,10,y);y+=6;doc.text(`Check Out: ${a.check_out?new Date(a.check_out).toLocaleString():"-"}`,10,y);y+=8;doc.text("----------------------------------------",10,y);y+=8;if(y>270){doc.addPage();y=10;}});
+  doc.save(`${currentAttendanceUserName}_attendance.pdf`);
+};
+
+// Initialize
+loadUsers();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.min.js"></script>
+</body>
+</html>

@@ -3,9 +3,17 @@ import ExcelJS from "exceljs";
 import PDFDocument from "pdfkit";
 import { Readable } from "stream";
 
+// Helper function to format date into a readable format
+const formatDate = (date) => {
+  if (!date) return "-";
+  const d = new Date(date);
+  return `${d.toLocaleDateString()} ${d.toLocaleTimeString()}`;
+};
+
 // ------------------------ CHECK-IN ------------------------
 export const checkIn = (req, res) => {
   const staff_id = req.user.staff_id;
+  
   db.query(
     "SELECT id FROM attendance WHERE staff_id = ? AND check_out IS NULL ORDER BY id DESC LIMIT 1",
     [staff_id],
@@ -29,6 +37,7 @@ export const checkIn = (req, res) => {
 // ------------------------ CHECK-OUT ------------------------
 export const checkOut = (req, res) => {
   const staff_id = req.user.staff_id;
+  
   db.query(
     "SELECT id FROM attendance WHERE staff_id = ? AND check_out IS NULL ORDER BY id DESC LIMIT 1",
     [staff_id],
@@ -52,6 +61,7 @@ export const checkOut = (req, res) => {
 // ------------------------ STATUS ------------------------
 export const getStatus = (req, res) => {
   const staff_id = req.user.staff_id;
+  
   db.query(
     "SELECT check_in, check_out FROM attendance WHERE staff_id = ? ORDER BY id DESC LIMIT 1",
     [staff_id],
@@ -120,8 +130,8 @@ export const exportAttendancePDF = (req, res) => {
     doc.moveDown(0.5);
 
     rows.forEach((row) => {
-      const checkIn = row.check_in ? new Date(row.check_in).toLocaleString() : "-";
-      const checkOut = row.check_out ? new Date(row.check_out).toLocaleString() : "-";
+      const checkIn = formatDate(row.check_in);
+      const checkOut = formatDate(row.check_out);
       doc.text(`${checkIn.padEnd(30)}${checkOut}`);
     });
 
@@ -158,8 +168,8 @@ export const exportAttendanceExcel = async (req, res) => {
 
     rows.forEach((r) => {
       sheet.addRow({
-        check_in: r.check_in ? new Date(r.check_in).toLocaleString() : "-",
-        check_out: r.check_out ? new Date(r.check_out).toLocaleString() : "-",
+        check_in: formatDate(r.check_in),
+        check_out: formatDate(r.check_out),
       });
     });
 
@@ -177,7 +187,7 @@ export const exportAttendanceExcel = async (req, res) => {
   });
 };
 
-//------------------------ADD EXPORT FOR ALL STAFF FOR ADMIN------------------------
+//------------------------ ADD EXPORT FOR ALL STAFF FOR ADMIN ------------------------
 // Admin: full attendance history for all staff with optional date filter
 export const getAllAttendance = (req, res) => {
   let { startDate, endDate } = req.query;
@@ -197,3 +207,5 @@ export const getAllAttendance = (req, res) => {
     res.json(rows);
   });
 };
+
+

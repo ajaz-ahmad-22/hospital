@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Staff Attendance</title>
+  <link rel="stylesheet" href="styles.css">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-KyZXEJp6eN6dz4m8fcgP5yBdbY2w9hvNxg5aUMGrXXfR4lYQF4FstCZr2c9dFlk3" crossorigin="anonymous">
+  <style>
+    /* Add custom cursor style for disabled buttons */
+    .disabled-btn {
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+  <h1>Welcome to Mohammadia Nursing Home</h1>
+  <h1>Attendance Management System (AMS) 1.0</h1>
+  <h1>Attendance - <span id="staffName"></span></h1>
+  <button id="checkInBtn">Check In</button>
+  <button id="checkOutBtn">Check Out</button>
+  <button id="logoutBtn">Logout</button>
+
+  <p>Last Check-In: <span id="lastCheckIn">-</span></p>
+  <p>Last Check-Out: <span id="lastCheckOut">-</span></p>
+
+  <script>
+    const token = localStorage.getItem("token");
+    const role = localStorage.getItem("role");
+    const name = localStorage.getItem("name");
+
+    if (!token || role !== "Staff") window.location.href = "login.html";
+    document.getElementById("staffName").innerText = name;
+
+    const API_BASE = "http://192.168.35.70:5000/api/attendance";
+    const lastCheckInEl = document.getElementById("lastCheckIn");
+    const lastCheckOutEl = document.getElementById("lastCheckOut");
+    const checkInBtn = document.getElementById("checkInBtn");
+    const checkOutBtn = document.getElementById("checkOutBtn");
+
+    async function loadAttendance() {
+      try {
+        const res = await fetch(`${API_BASE}/status`, {
+          headers: { "Authorization": "Bearer " + token }
+        });
+        const data = await res.json();
+
+        if (data.current) {
+          // Show the last check-in and check-out times
+          lastCheckInEl.textContent = data.current.check_in
+            ? new Date(data.current.check_in).toLocaleString()
+            : "-";
+          lastCheckOutEl.textContent = data.current.check_out
+            ? new Date(data.current.check_out).toLocaleString()
+            : "-";
+
+          // Disable/Enable buttons based on current status
+          if (data.current.check_out) {
+            checkInBtn.disabled = false;
+            checkInBtn.classList.remove('disabled-btn'); // Enable Check-In button
+            checkOutBtn.disabled = true;  // Disable Check-Out button after check-out
+            checkOutBtn.classList.add('disabled-btn'); // Apply "not-allowed" cursor for Check-Out
+          } else if (data.current.check_in) {
+            checkInBtn.disabled = true;   // Disable Check-In button if already checked in
+            checkInBtn.classList.add('disabled-btn'); // Apply "not-allowed" cursor for Check-In
+            checkOutBtn.disabled = false;
+            checkOutBtn.classList.remove('disabled-btn'); // Enable Check-Out button
+          } else {
+            checkInBtn.disabled = false;
+            checkInBtn.classList.remove('disabled-btn'); // Enable Check-In button
+            checkOutBtn.disabled = true;  // Disable Check-Out button if not checked in
+            checkOutBtn.classList.add('disabled-btn'); // Apply "not-allowed" cursor for Check-Out
+          }
+        }
+      } catch (error) {
+        console.error("Error loading attendance:", error);
+      }
+    }
+
+    // Handle Check-In
+    checkInBtn.addEventListener("click", async () => {
+      const res = await fetch(`${API_BASE}/checkin`, {
+        method: "POST",
+        headers: { "Authorization": "Bearer " + token }
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        loadAttendance();  // Reload attendance data to update UI
+      } else {
+        alert(data.error);  // Show error if any
+      }
+    });
+
+    // Handle Check-Out
+    checkOutBtn.addEventListener("click", async () => {
+      const res = await fetch(`${API_BASE}/checkout`, {
+        method: "POST",
+        headers: { "Authorization": "Bearer " + token }
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        loadAttendance();  // Reload attendance data to update UI
+      } else {
+        alert(data.error);  // Show error if any
+      }
+    });
+
+    // Logout functionality
+    document.getElementById("logoutBtn").addEventListener("click", () => {
+      localStorage.clear();
+      window.location.href = "login.html";
+    });
+
+    // Initial load of attendance data
+    loadAttendance();
+  </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js" integrity="sha384-oBqDVmMz4fnFO9gybYd/3P6gh3jO4Gi7r4dLvyj8GzR2iF9hZ3cpkbPRAkp6S5z1" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.min.js" integrity="sha384-pzjw8f+ua7Kw1TIq0gRrHfJ2fFVr1/jmc0v9Pa6MX3/kAK07scRmkFw3zcdsm2S2" crossorigin="anonymous"></script>
+</body>
+</html>
