@@ -14,16 +14,28 @@
   </style>
 </head>
 <body>
-  <h1>Welcome to Mohammadia Nursing Home</h1>
-  <h1>Attendance Management System (AMS) 1.0</h1>
+  <div class="header">
+  <img src="./10percent.png" alt="logi" class="logo">
+  <div class="titles">
+    <h2>Mohammadia Nursing Home</h2>
+   
+    <hr><br>
+  </div>
+</div>
   <h1>Attendance - <span id="staffName"></span></h1>
   <button id="checkInBtn">Check In</button>
   <button id="checkOutBtn">Check Out</button>
   <button id="logoutBtn">Logout</button>
 
+  <hr><br>
   <p>Last Check-In: <span id="lastCheckIn">-</span></p>
   <p>Last Check-Out: <span id="lastCheckOut">-</span></p>
-
+<footer>
+  <div>
+<h2 class="footer">AMS 1.0</h2><br>
+  </div>
+   
+</footer>
   <script>
     const token = localStorage.getItem("token");
     const role = localStorage.getItem("role");
