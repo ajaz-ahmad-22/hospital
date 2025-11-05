@@ -9,7 +9,7 @@
 <style>
   body {
     font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-    background-color: #f8fafc;
+  
     padding: 20px;
   }
 
@@ -18,7 +18,7 @@
     margin-bottom: 25px;
     color: #222;
   }
-
+  
   .form-box {
     background: #fff;
     padding: 20px;
@@ -49,7 +49,7 @@
     cursor: pointer;
     display: block;
     margin: 0 auto;
-    width: 50%
+    width: 50%;
   }
 
   .form-box button:hover {
@@ -151,13 +151,13 @@
 /* Media Query for small screens (Mobile) */
 @media screen and (max-width: 600px) {
   .modal-content {
-    width: 75%; /* Make modal content take up more of the screen */
-    padding: 15px; /* Reduce padding */
+    width: 75%;
+    padding: 15px;
     margin: 12%;
   }
 
   .close {
-    font-size: 22px; /* Slightly smaller close button on mobile */
+    font-size: 22px;
   }
 }
 
@@ -203,7 +203,6 @@
   </div>
 </div>
 
-
 <div class="form-box">
   <h3>Add User</h3>
   <form id="addUserForm">
@@ -218,9 +217,18 @@
   </form>
 </div>
 
+<!-- Global Attendance Export -->
+<div class="export-buttons" style="margin-bottom:20px;">
+  <label>From: <input type="date" id="globalStartDate" /></label>
+  <label>To: <input type="date" id="globalEndDate" /></label>
+  <button id="exportAllExcel">Export All to Excel</button>
+  <button id="exportAllPDF">Export All to PDF</button>
+</div>
+
 <h3>Existing Users</h3>
 
 <div class="pagination">
+  <div id="inactiveWarning" style="color:red; font-weight:bold; margin-right:10px;"></div>
   <input type="text" id="searchBar" placeholder="Search by Name or Staff ID" />
   <label for="usersPerPage">Users per page:</label>
   <select id="usersPerPage">
@@ -271,7 +279,7 @@
 
     <table class="table table-striped">
       <thead>
-        <tr><th>Check In</th><th>Check Out</th></tr>
+        <tr><th>Check In</th><th>Check Out</th><th>Total Hours</th></tr>
       </thead>
       <tbody id="attendanceBody"></tbody>
     </table>
@@ -321,32 +329,146 @@ function renderTable() {
   const start = (currentPage - 1) * usersPerPage;
   const pageUsers = filteredUsers.slice(start, start + usersPerPage);
 
+  let inactiveCount = 0;
+  const today = new Date();
+
   pageUsers.forEach((u, i) => {
     const tr = document.createElement("tr");
     const serial = start + i + 1;
+
+    // Inactivity check
+    const lastCheckIn = u.last_check_in ? new Date(u.last_check_in) : null;
+    const lastCheckOut = u.last_check_out ? new Date(u.last_check_out) : null;
+    let inactive = false;
+    const lastActivity = lastCheckIn || lastCheckOut;
+    if (!lastActivity) inactive = true;
+    else {
+      const diffDays = Math.floor((today - lastActivity) / (1000 * 60 * 60 * 24));
+      if (diffDays >= 10) inactive = true;
+    }
+    if (inactive) inactiveCount++;
+
     const actionButtons = u.role === "Admin" ? "" :
       `<button onclick="toggleStatus('${u.staff_id}','${u.status}')">${u.status==='Active'?'Disable':'Enable'}</button>
        <button onclick="deleteUser('${u.staff_id}')">Delete</button>`;
+
     tr.innerHTML = `
       <td>${serial}</td>
-      <td><a onclick="showAttendance('${u.staff_id}','${u.name}')">${u.name}</a></td>
+      <td><a onclick="showAttendance('${u.staff_id}','${u.name}')" style="color:${inactive?'red':'#007bff'}">
+        ${u.name}${inactive?' ❗':''}</a></td>
       <td>${u.staff_id}</td>
       <td>${u.role}</td>
       <td>${u.status}</td>
       <td>${u.last_check_in ? new Date(u.last_check_in).toLocaleString():"-"}</td>
       <td>${u.last_check_out ? new Date(u.last_check_out).toLocaleString():"-"}</td>
       <td>${actionButtons}</td>`;
+
     tbody.appendChild(tr);
 
-    // line divider
     const hr = document.createElement("tr");
     hr.innerHTML = `<td colspan="8"><hr class="user-divider" /></td>`;
     tbody.appendChild(hr);
   });
+
   document.getElementById("pageInfo").textContent = `Page ${currentPage} of ${totalPages || 1}`;
+
+  const warningDiv = document.getElementById("inactiveWarning");
+  if (inactiveCount > 0) warningDiv.innerText = `⚠️ ${inactiveCount} user(s) inactive for 10+ days`;
+  else warningDiv.innerText = "";
 }
 
-// Search + pagination handlers same as before
+// ------------------- Global Export All Users Attendance -------------------
+document.getElementById("exportAllExcel").onclick = async () => {
+  const start = document.getElementById("globalStartDate").value;
+  const end = document.getElementById("globalEndDate").value;
+  if (!start || !end) return alert("Select both start and end dates");
+
+  const startDate = new Date(start);
+  const endDate = new Date(end); endDate.setHours(23,59,59,999);
+
+  const rows = [];
+
+  for (let u of allUsers) {
+    const res = await fetch(`${ATTENDANCE_URL}/history/${u.staff_id}`, { headers: { Authorization: "Bearer " + token } });
+    const data = await res.json();
+
+    const filtered = data.filter(a => a.check_in && new Date(a.check_in) >= startDate && new Date(a.check_in) <= endDate);
+    let totalHours = 0;
+
+    filtered.forEach(a => {
+      if (a.check_in && a.check_out) {
+        const diffMs = new Date(a.check_out) - new Date(a.check_in);
+        totalHours += diffMs / 1000 / 60 / 60;
+      }
+    });
+
+    rows.push({
+      Name: u.name,
+      "Staff ID": u.staff_id,
+      "Total Hours": totalHours.toFixed(2)
+    });
+  }
+
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws['!cols'] = [
+    { wch: 25 }, 
+    { wch: 20 }, 
+    { wch: 15 }  
+  ];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "All Attendance");
+  XLSX.writeFile(wb, `All_Users_Attendance.xlsx`);
+};
+
+document.getElementById("exportAllPDF").onclick = async () => {
+  const start = document.getElementById("globalStartDate").value;
+  const end = document.getElementById("globalEndDate").value;
+  if (!start || !end) return alert("Select both start and end dates");
+
+  const startDate = new Date(start);
+  const endDate = new Date(end); endDate.setHours(23,59,59,999);
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+  let y = 40;
+
+  doc.setFontSize(14);
+  doc.text(`All Users Attendance Report`, 40, y); y += 25;
+  doc.setFontSize(12);
+  doc.text(`From: ${startDate.toLocaleDateString()} To: ${endDate.toLocaleDateString()}`, 40, y); y += 20;
+
+  doc.text("Name", 40, y);
+  doc.text("Staff ID", 250, y);
+  doc.text("Total Hours", 400, y);
+  y += 8;
+  doc.setLineWidth(0.5);
+  doc.line(40, y, 550, y);
+  y += 15;
+
+  for (let u of allUsers) {
+    const res = await fetch(`${ATTENDANCE_URL}/history/${u.staff_id}`, { headers: { Authorization: "Bearer " + token } });
+    const data = await res.json();
+
+    const filtered = data.filter(a => a.check_in && new Date(a.check_in) >= startDate && new Date(a.check_in) <= endDate);
+    let totalHours = 0;
+    filtered.forEach(a => {
+      if (a.check_in && a.check_out) {
+        const diffMs = new Date(a.check_out) - new Date(a.check_in);
+        totalHours += diffMs / 1000 / 60 / 60;
+      }
+    });
+
+    doc.text(u.name, 40, y);
+    doc.text(u.staff_id, 250, y);
+    doc.text(totalHours.toFixed(2), 400, y);
+    y += 20;
+    if (y > 750) { doc.addPage(); y = 40; }
+  }
+
+  doc.save(`All_Users_Attendance.pdf`);
+};
+
+// Search + pagination
 document.getElementById("searchBar").addEventListener("input", e=>{
   const term = e.target.value.toLowerCase();
   filteredUsers = allUsers.filter(u =>
@@ -370,7 +492,7 @@ document.getElementById("addUserForm").addEventListener("submit", async e=>{
   if(res.ok){alert(data.message);loadUsers();e.target.reset();} else alert(data.error);
 });
 
-// Status toggle & delete same as before
+// Status toggle & delete
 async function toggleStatus(staff_id,currentStatus){
   const newStatus=currentStatus==='Active'?'Inactive':'Active';
   await fetch(`${API_URL}/status/${staff_id}`,{method:"PUT",headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},body:JSON.stringify({status:newStatus})});
@@ -385,27 +507,57 @@ async function deleteUser(staff_id){
 // Logout
 document.getElementById("logoutBtn").onclick=()=>{localStorage.removeItem("token");window.location.href="login.html";};
 
-// Modal logic + filter/export (unchanged from your version)
+// Modal logic + filter/export
 const modal=document.getElementById("attendanceModal"),span=document.getElementsByClassName("close")[0];
 span.onclick=()=>modal.style.display="none";
 window.onclick=e=>{if(e.target==modal)modal.style.display="none";};
 
-async function showAttendance(staff_id,name){
-  document.getElementById("modalName").innerText=name;
-  currentAttendanceUserName=name; currentAttendanceStaffId=staff_id;
-  const res=await fetch(`${ATTENDANCE_URL}/history/${staff_id}`,{headers:{Authorization:"Bearer "+token}});
-  const data=await res.json(); currentAttendanceData=data; currentFilteredAttendance=[];
-  const tbody=document.getElementById("attendanceBody");
-  tbody.innerHTML="";
-  data.forEach(a=>{
-    const tr=document.createElement("tr");
-    tr.innerHTML=`<td>${a.check_in?new Date(a.check_in).toLocaleString():"-"}</td>
-                  <td>${a.check_out?new Date(a.check_out).toLocaleString():"-"}</td>`;
+// ------------------- Attendance + Export -------------------
+async function showAttendance(staff_id, name) {
+  document.getElementById("modalName").innerText = name;
+  currentAttendanceUserName = name;
+  currentAttendanceStaffId = staff_id;
+
+  const res = await fetch(`${ATTENDANCE_URL}/history/${staff_id}`, { headers: { Authorization: "Bearer " + token } });
+  const data = await res.json();
+  currentAttendanceData = data;
+  currentFilteredAttendance = [];
+
+  const tbody = document.getElementById("attendanceBody");
+  tbody.innerHTML = "";
+
+  const today = new Date();
+  let lastCheckInDate = null;
+
+  data.forEach(a => {
+    const checkIn = a.check_in ? new Date(a.check_in) : null;
+    const checkOut = a.check_out ? new Date(a.check_out) : null;
+    if (checkIn) lastCheckInDate = checkIn;
+
+    let totalHours = "-";
+    if (checkIn && checkOut) {
+      const diffMs = checkOut - checkIn;
+      const hours = Math.floor(diffMs / 1000 / 60 / 60);
+      const minutes = Math.floor((diffMs / 1000 / 60) % 60);
+      totalHours = `${hours}h ${minutes}m`;
+    }
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${checkIn ? checkIn.toLocaleString() : "-"}</td>
+                    <td>${checkOut ? checkOut.toLocaleString() : "-"}</td>
+                    <td>${totalHours}</td>`;
     tbody.appendChild(tr);
   });
-  modal.style.display="block";
+
+  if (lastCheckInDate) {
+    const diffDays = Math.floor((today - lastCheckInDate) / (1000 * 60 * 60 * 24));
+    if (diffDays >= 10) alert(`⚠️ Warning: This user has no activity for ${diffDays} days!`);
+  }
+
+  modal.style.display = "block";
 }
 
+// Filter attendance
 document.getElementById("filterAttendance").onclick=()=>{
   const s=document.getElementById("startDate").value,e=document.getElementById("endDate").value;
   if(!s||!e)return alert("Select both dates");
@@ -414,26 +566,102 @@ document.getElementById("filterAttendance").onclick=()=>{
   const tbody=document.getElementById("attendanceBody");
   tbody.innerHTML="";
   f.forEach(a=>{
+    const checkIn = a.check_in ? new Date(a.check_in) : "-";
+    const checkOut = a.check_out ? new Date(a.check_out) : "-";
+    let totalHours = "-";
+    if(checkIn !== "-" && checkOut !== "-"){
+      const diffMs = checkOut - checkIn;
+      const hours = Math.floor(diffMs / 1000 / 60 / 60);
+      const minutes = Math.floor((diffMs / 1000 / 60) % 60);
+      totalHours = `${hours}h ${minutes}m`;
+    }
     const tr=document.createElement("tr");
-    tr.innerHTML=`<td>${a.check_in?new Date(a.check_in).toLocaleString():"-"}</td><td>${a.check_out?new Date(a.check_out).toLocaleString():"-"}</td>`;
+    tr.innerHTML=`<td>${checkIn!=="-"?checkIn.toLocaleString():"-"}</td>
+                  <td>${checkOut!=="-"?checkOut.toLocaleString():"-"}</td>
+                  <td>${totalHours}</td>`;
     tbody.appendChild(tr);
   });
   currentFilteredAttendance=f; if(!f.length)alert("No records found.");
 };
 
-// Export Excel/PDF same as before
-document.getElementById("exportAttendanceExcel").onclick=()=>{
-  const d=currentFilteredAttendance.length?currentFilteredAttendance:currentAttendanceData;
-  if(!d.length)return alert("No attendance records.");
-  const rows=d.map(a=>({"Check In":a.check_in?new Date(a.check_in).toLocaleString():"-","Check Out":a.check_out?new Date(a.check_out).toLocaleString():"-"}));
-  rows.unshift({"Check In":`Name: ${currentAttendanceUserName}`,"Check Out":`Staff ID: ${currentAttendanceStaffId}`});
-  const ws=XLSX.utils.json_to_sheet(rows),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Attendance");XLSX.writeFile(wb,`${currentAttendanceUserName}_attendance.xlsx`);
+// ------------------- Export Excel -------------------
+document.getElementById("exportAttendanceExcel").onclick = () => {
+  const data = currentFilteredAttendance.length ? currentFilteredAttendance : currentAttendanceData;
+  if (!data.length) return alert("No attendance records.");
+
+  const rows = data.map(a => {
+    const checkIn = a.check_in ? new Date(a.check_in).toLocaleString() : "";
+    const checkOut = a.check_out ? new Date(a.check_out).toLocaleString() : "";
+    let totalHours = 0;
+    if (checkIn && checkOut) totalHours = (new Date(a.check_out)-new Date(a.check_in))/1000/60/60;
+    return {
+      Name: currentAttendanceUserName,
+      "Check In": checkIn,
+      "Check Out": checkOut,
+      "Total Hours": totalHours.toFixed(2)
+    };
+  });
+
+  const totalHoursSum = rows.reduce((sum, r) => sum + parseFloat(r["Total Hours"]), 0);
+  rows.push({ Name: "Monthly Total", "Check In": "", "Check Out": "", "Total Hours": totalHoursSum.toFixed(2) });
+
+  const ws = XLSX.utils.json_to_sheet(rows, { skipHeader: false });
+  ws['!cols'] = [{wch:25},{wch:25},{wch:25},{wch:15}];
+
+  const headerCells = ["A1","B1","C1","D1"];
+  headerCells.forEach(cell => {
+    if(ws[cell]) ws[cell].s = { font:{bold:true,color:{rgb:"FFFFFF"}}, fill:{fgColor:{rgb:"16A249"}}, alignment:{horizontal:"center"}, border:{top:{style:"thin",color:{rgb:"000000"}},bottom:{style:"thin",color:{rgb:"000000"}},left:{style:"thin",color:{rgb:"000000"}},right:{style:"thin",color:{rgb:"000000"}}} };
+  });
+
+  const range = XLSX.utils.decode_range(ws['!ref']);
+  for(let R=range.s.r;R<=range.e.r;R++){
+    for(let C=range.s.c;C<=range.e.c;C++){
+      const cellRef=XLSX.utils.encode_cell({c:C,r:R});
+      if(ws[cellRef]){
+        ws[cellRef].t='s';
+        ws[cellRef].s=ws[cellRef].s||{};
+        ws[cellRef].s.fill=ws[cellRef].s.fill||{};
+        if(R>0) ws[cellRef].s.fill.fgColor={rgb:R%2===0?"F2F2F2":"FFFFFF"};
+        ws[cellRef].s.border={top:{style:"thin",color:{rgb:"000000"}},bottom:{style:"thin",color:{rgb:"000000"}},left:{style:"thin",color:{rgb:"000000"}},right:{style:"thin",color:{rgb:"000000"}}};
+        ws[cellRef].s.alignment={horizontal:"center"};
+      }
+    }
+  }
+
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Attendance");
+  XLSX.writeFile(wb, `${currentAttendanceUserName}_attendance.xlsx`);
 };
-document.getElementById("exportAttendancePDF").onclick=()=>{
-  const d=currentFilteredAttendance.length?currentFilteredAttendance:currentAttendanceData;
-  if(!d.length)return alert("No attendance records.");
-  const {jsPDF}=window.jspdf;const doc=new jsPDF();let y=10;doc.text(`Name: ${currentAttendanceUserName}`,10,y);y+=6;doc.text(`Staff ID: ${currentAttendanceStaffId}`,10,y);y+=10;
-  d.forEach(a=>{doc.text(`Check In: ${a.check_in?new Date(a.check_in).toLocaleString():"-"}`,10,y);y+=6;doc.text(`Check Out: ${a.check_out?new Date(a.check_out).toLocaleString():"-"}`,10,y);y+=8;doc.text("----------------------------------------",10,y);y+=8;if(y>270){doc.addPage();y=10;}});
+
+// ------------------- Export PDF -------------------
+document.getElementById("exportAttendancePDF").onclick = () => {
+  const data = currentFilteredAttendance.length ? currentFilteredAttendance : currentAttendanceData;
+  if (!data.length) return alert("No attendance records.");
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:"portrait", unit:"pt", format:"a4" });
+  let y = 40;
+
+  doc.setFontSize(14); doc.text(`Name: ${currentAttendanceUserName}`,40,y); y+=20;
+  doc.text(`Staff ID: ${currentAttendanceStaffId}`,40,y); y+=20;
+
+  doc.setFontSize(12);
+  doc.text("Check In",40,y); doc.text("Check Out",200,y); doc.text("Total Hours",360,y); y+=8;
+  doc.setLineWidth(0.5); doc.line(40,y,550,y); y+=15;
+
+  let totalHoursSum=0;
+  data.forEach(a=>{
+    const checkIn=a.check_in?new Date(a.check_in):"-";
+    const checkOut=a.check_out?new Date(a.check_out):"-";
+    let totalHours=0;
+    if(checkIn!=="-"&&checkOut!=="-"){ totalHours=(checkOut-checkIn)/1000/60/60; totalHoursSum+=totalHours; }
+    doc.text(checkIn!=="-"?checkIn.toLocaleString():"-",40,y);
+    doc.text(checkOut!=="-"?checkOut.toLocaleString():"-",200,y);
+    doc.text(totalHours.toFixed(2),360,y); y+=20;
+    if(y>750){ doc.addPage(); y=40; }
+  });
+
+  doc.text("Monthly Total",40,y); doc.text("",200,y); doc.text(totalHoursSum.toFixed(2),360,y);
   doc.save(`${currentAttendanceUserName}_attendance.pdf`);
 };
 
@@ -444,3 +672,4 @@ loadUsers();
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.min.js"></script>
 </body>
 </html>
+
